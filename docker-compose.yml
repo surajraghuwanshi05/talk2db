@@ -1,0 +1,104 @@
+# talk2db — local stack
+#
+#   docker compose up -d                       # api + app DB + Chinook sample DB
+#   docker compose --profile local up -d       # + Ollama (fully local LLM, no API key)
+#   docker compose --profile qdrant up -d      # + Qdrant vector store (large schemas)
+#
+# Before the first `up`, fetch the sample data:  uv run python -m scripts.download_sample_dbs
+# All ports bind to 127.0.0.1 only — nothing is exposed to your network by default.
+
+name: talk2db
+
+services:
+  api:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_DB_URL: postgresql+psycopg://nl2sql:nl2sql@app-db:5432/nl2sql_app
+      # Default to the bundled Ollama when the `local` profile is used;
+      # override any of these in .env to use a cloud provider instead.
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5-coder:7b}
+      LLM_API_BASE: ${LLM_API_BASE:-http://ollama:11434}
+      QDRANT_URL: http://qdrant:6333
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - api-data:/app/data          # fastembed model cache
+    depends_on:
+      app-db:
+        condition: service_healthy
+      chinook-db:
+        condition: service_healthy
+
+  # Metadata DB: datasources, LLM providers (keys encrypted), history.
+  app-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nl2sql
+      POSTGRES_PASSWORD: nl2sql
+      POSTGRES_DB: nl2sql_app
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nl2sql -d nl2sql_app"]
+      interval: 5s
+      retries: 10
+
+  # Sample TARGET database to ask questions about (Chinook music store).
+  chinook-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGPASSWORD: reader            # used by the healthcheck's psql as nl2sql_reader
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - chinook-data:/var/lib/postgresql/data
+      - ./sample_dbs/chinook/Chinook_PostgreSql.sql:/docker-entrypoint-initdb.d/01_chinook.sql:ro
+      - ./sample_dbs/postgres-init/02_readonly_user.sql:/docker-entrypoint-initdb.d/02_readonly_user.sql:ro
+    healthcheck:
+      # Healthy only once the init scripts finished and the reader can query.
+      test: ["CMD-SHELL", "psql -U nl2sql_reader -d chinook -h localhost -c 'select 1 from artist limit 1' || exit 1"]
+      interval: 5s
+      retries: 30
+
+  # ── optional profiles ───────────────────────────────────────────────────────
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+  # One-shot: pulls the default model into the Ollama volume, then exits.
+  ollama-pull:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    depends_on: [ollama]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "sleep 3 && ollama pull ${LLM_MODEL:-qwen2.5-coder:7b}"]
+    restart: "no"
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    profiles: ["qdrant"]
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+volumes:
+  api-data:
+  app-db-data:
+  chinook-data:
+  ollama-models:
+  qdrant-data:

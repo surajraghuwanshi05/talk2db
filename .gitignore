@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Developer-only docs — kept locally, never published
+plan.md
+status.md
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# Secrets & local config — NEVER commit
+.env
+.env.*
+!.env.example
+local-secrets/
+
+# Local data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Downloaded sample databases (fetched by scripts/download_sample_dbs.py)
+sample_dbs/chinook/*.sql
+sample_dbs/chinook/*.sqlite
+
+# Eval output
+eval/reports/*
+!eval/reports/.gitkeep
+
+# fastembed model cache
+.fastembed_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Frontend (Phase 3)
+node_modules/
+dist/

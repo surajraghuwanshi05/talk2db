@@ -1,0 +1,12 @@
+.venv
+.git
+.env
+.env.*
+data
+sample_dbs
+eval/reports
+tests
+**/__pycache__
+.pytest_cache
+.ruff_cache
+node_modules

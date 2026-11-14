@@ -1,0 +1,67 @@
+[project]
+name = "talk2db"
+version = "0.1.0"
+description = "Ask your database questions in plain English. Bring-your-own-LLM, fully transparent NL2SQL pipeline."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    # Web
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    # Settings / models
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    # App metadata DB + target DBs
+    "sqlalchemy>=2.0.36,<2.1",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.2.0",   # Postgres driver
+    "pymysql>=1.1.1",           # MySQL driver
+    # LLM: one interface for every provider (OpenAI, Anthropic, Gemini, Ollama, ...)
+    "litellm>=1.60.0",
+    # Secrets at rest (API keys, datasource URLs)
+    "cryptography>=43.0.0",
+    # Logging
+    "structlog>=24.4.0",
+    # Utilities
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+# Local, key-free embeddings (ONNX, CPU). Without it, retrieval degrades to BM25-only.
+local = ["fastembed>=0.4.0"]
+# Vector store for large schemas (Phase 4). In-memory is the default.
+qdrant = ["qdrant-client>=1.12.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+# ── Tooling ────────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008"]   # FastAPI's Depends() in defaults is idiomatic
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q"
